@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["referentialIntegrity"]
+  output          = "../database/client"
+}
+
+datasource db {
+  provider             = "mysql"
+  url                  = env("DATABASE_URL")
+  referentialIntegrity = "prisma"
+}
+
+model User {
+  id                    String                     @id @default(uuid())
+  createdAt             DateTime                   @default(now())
+  account               UserAccount?
+  profile               UserProfile?
+  stripeCustomer        UserStripeCustomer?
+  balanceItems          UserBalanceItem[]
+  magicLinks            UserMagicLink[]
+  publicationDashboards PublicationDashboardUser[]
+}
+
+model UserAccount {
+  userId         String   @id
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastSignedInAt DateTime @updatedAt
+  email          String   @unique
+  password       String
+  emailVerified  Boolean
+  user           User     @relation(references: [id], fields: [userId])
+
+  @@index([userId])
+}
+
+model UserProfile {
+  userId    String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  bio       String?  @db.Text
+  location  String?
+  photo     Json?
+  user      User     @relation(references: [id], fields: [userId])
+
+  @@index([userId])
+}
+
+model UserStripeCustomer {
+  userId           String   @id
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  stripeCustomerId String   @unique
+  customer         Json
+  user             User     @relation(references: [id], fields: [userId])
+
+  @@index([userId])
+}
+
+model UserBalanceItem {
+  id        String             @id @default(uuid())
+  createdAt DateTime           @default(now())
+  userId    String
+  amount    Int
+  type      UserBalancItemType
+  user      User               @relation(references: [id], fields: [userId])
+
+  @@index([userId])
+}
+
+model UserMagicLink {
+  id        String          @id @default(uuid())
+  userId    String
+  createdAt DateTime        @default(now())
+  secret    String
+  used      Boolean         @default(false)
+  remember  Boolean
+  action    MagicLinkAction
+  newEmail  String?
+  user      User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Publication {
+  id               String                     @id @default(uuid())
+  name             String                     @db.Text
+  url              String                     @db.Text
+  organizationName String
+  logo             Json?
+  tagline          String?
+  description      String?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  dashboardUsers   PublicationDashboardUser[]
+}
+
+model PublicationDashboardUser {
+  publicationId String
+  userId        String
+  updatedAt     DateTime              @default(now()) @updatedAt
+  permission    PublicationPermission
+  publication   Publication           @relation(fields: [publicationId], references: [id])
+  user          User                  @relation(fields: [userId], references: [id])
+
+  @@id([userId, publicationId])
+}
+
+enum UserBalancItemType {
+  INITIAL
+  PURCHASE
+  BALANCE_ADDITION
+}
+
+enum MagicLinkAction {
+  SIGN_IN
+  VERIFY_EMAIL
+  CHANGE_EMAIL
+}
+
+enum PublicationPermission {
+  ADMIN
+  VIEWER
+}
